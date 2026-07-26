@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vocabulary Card Sort</title>
+<style>
+  /* ============================================================
+     EDIT ME: content is set in the <script> block near the
+     bottom of this file, in the CONFIG object. Look for
+     "EDIT YOUR CONTENT HERE" to change the title, instructions,
+     bucket names, and word list.
+     ============================================================ */
+
+  :root{
+    --ink:#212A3E;
+    --ink-soft:#3A4560;
+    --parchment:#F7F1E3;
+    --parchment-dim:#EDE4CF;
+    --amber:#E3A857;
+    --plum:#9B6B9E;
+    --teal:#4C9A8B;
+    --bg:#212A3E;
+  }
+
+  *{box-sizing:border-box;}
+
+  body{
+    margin:0;
+    padding:24px 16px 40px;
+    background:
+      radial-gradient(circle at 15% 10%, rgba(247,241,227,0.05), transparent 40%),
+      radial-gradient(circle at 85% 90%, rgba(247,241,227,0.04), transparent 40%),
+      var(--bg);
+    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color:var(--parchment);
+    min-height:100vh;
+  }
+
+  .wrap{max-width:980px; margin:0 auto;}
+
+  header{
+    text-align:center;
+    margin-bottom:28px;
+  }
+
+  h1{
+    font-family:Georgia, "Iowan Old Style", "Times New Roman", serif;
+    font-size:clamp(24px, 4vw, 34px);
+    font-weight:700;
+    margin:0 0 8px;
+    letter-spacing:0.2px;
+  }
+
+  .instructions{
+    font-size:15px;
+    line-height:1.5;
+    color:#C9CFE0;
+    max-width:640px;
+    margin:0 auto;
+  }
+
+  /* -------- Word bank -------- */
+  .bank-section{
+    margin-bottom:32px;
+  }
+
+  .bank-label{
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:1.5px;
+    color:#8D96B5;
+    margin-bottom:10px;
+    text-align:center;
+  }
+
+  .bank{
+    display:flex;
+    flex-wrap:wrap;
+    gap:12px;
+    justify-content:center;
+    min-height:64px;
+    padding:16px;
+    border:2px dashed #4A5578;
+    border-radius:12px;
+    background:rgba(247,241,227,0.03);
+  }
+
+  .bank:empty::after,
+  .bank.is-empty::after{
+    content:"All words have been sorted.";
+    color:#6E7896;
+    font-size:14px;
+    font-style:italic;
+    align-self:center;
+  }
+
+  /* -------- Card -------- */
+  .card{
+    font-family:"Courier New", Courier, monospace;
+    font-size:15px;
+    font-weight:700;
+    color:var(--ink);
+    background:var(--parchment);
+    padding:10px 16px;
+    border-radius:6px;
+    box-shadow:0 2px 0 rgba(0,0,0,0.15), 0 4px 10px rgba(0,0,0,0.25);
+    cursor:pointer;
+    user-select:none;
+    -webkit-user-select:none;
+    touch-action:manipulation;
+    position:relative;
+    transition:transform 0.15s ease, box-shadow 0.15s ease;
+    border:1px solid rgba(33,42,62,0.15);
+  }
+
+  .card:hover{
+    transform:translateY(-2px);
+    box-shadow:0 3px 0 rgba(0,0,0,0.15), 0 8px 16px rgba(0,0,0,0.3);
+  }
+
+  .card:active{
+    transform:translateY(0);
+  }
+
+  .card.dragging{
+    opacity:0.4;
+  }
+
+  .card::before{
+    content:"";
+    position:absolute;
+    top:0; left:12px;
+    width:16px; height:6px;
+    background:rgba(33,42,62,0.12);
+    border-radius:0 0 3px 3px;
+  }
+
+  /* -------- Columns -------- */
+  .columns{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:16px;
+  }
+
+  @media (max-width:720px){
+    .columns{grid-template-columns:1fr;}
+  }
+
+  .column{
+    background:rgba(247,241,227,0.04);
+    border-radius:14px;
+    padding:14px;
+    border-top:5px solid var(--col-accent);
+    display:flex;
+    flex-direction:column;
+    min-height:180px;
+  }
+
+  .column[data-bucket="know"]{--col-accent:var(--amber);}
+  .column[data-bucket="heard"]{--col-accent:var(--plum);}
+  .column[data-bucket="dontknow"]{--col-accent:var(--teal);}
+
+  .column-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:12px;
+  }
+
+  .column-title{
+    font-family:Georgia, serif;
+    font-weight:700;
+    font-size:16px;
+    color:var(--parchment);
+  }
+
+  .column-count{
+    font-family:"Courier New", monospace;
+    font-size:12px;
+    background:var(--col-accent);
+    color:var(--ink);
+    padding:2px 8px;
+    border-radius:999px;
+    font-weight:700;
+  }
+
+  .dropzone{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    min-height:80px;
+    padding:8px;
+    border-radius:10px;
+    border:2px dashed transparent;
+    transition:border-color 0.15s ease, background 0.15s ease;
+  }
+
+  .dropzone.drag-over{
+    border-color:var(--col-accent);
+    background:rgba(247,241,227,0.06);
+  }
+
+  .dropzone .card{
+    width:100%;
+  }
+
+  .empty-hint{
+    color:#6E7896;
+    font-size:13px;
+    font-style:italic;
+    text-align:center;
+    margin:auto 0;
+  }
+
+  /* -------- Move menu (tap fallback) -------- */
+  .menu{
+    position:fixed;
+    z-index:50;
+    background:var(--parchment);
+    border-radius:10px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.4);
+    padding:6px;
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    min-width:190px;
+  }
+
+  .menu button{
+    font-family:-apple-system, sans-serif;
+    font-size:14px;
+    text-align:left;
+    background:none;
+    border:none;
+    border-radius:6px;
+    padding:9px 12px;
+    cursor:pointer;
+    color:var(--ink);
+  }
+
+  .menu button:hover{
+    background:rgba(33,42,62,0.08);
+  }
+
+  .menu button[data-current="true"]{
+    font-weight:700;
+    color:var(--ink-soft);
+  }
+
+  .menu-backdrop{
+    position:fixed;
+    inset:0;
+    z-index:40;
+  }
+
+  /* -------- Footer -------- */
+  footer{
+    text-align:center;
+    margin-top:28px;
+  }
+
+  .reset-btn{
+    font-family:inherit;
+    font-size:13px;
+    color:#C9CFE0;
+    background:none;
+    border:1px solid #4A5578;
+    border-radius:999px;
+    padding:8px 18px;
+    cursor:pointer;
+  }
+
+  .reset-btn:hover{
+    border-color:var(--parchment);
+    color:var(--parchment);
+  }
+
+  .sr-only{
+    position:absolute;
+    width:1px; height:1px;
+    overflow:hidden;
+    clip:rect(0,0,0,0);
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1 id="title"></h1>
+    <p class="instructions" id="instructions"></p>
+  </header>
+
+  <div class="bank-section">
+    <div class="bank-label">Word Bank — tap or drag a card to sort it</div>
+    <div class="bank" id="bank"></div>
+  </div>
+
+  <div class="columns" id="columns"></div>
+
+  <footer>
+    <button class="reset-btn" id="resetBtn">Reset all cards</button>
+  </footer>
+</div>
+
+<script>
+/* ============================================================
+   EDIT YOUR CONTENT HERE
+   ============================================================ */
+const CONFIG = {
+  title: "Vocabulary Self-Check",
+  instructions: "Drag (or tap) each word into whichever column honestly describes you right now. There's no right or wrong answer — this is just for you.",
+  buckets: [
+    { id: "know",      label: "I Know It" },
+    { id: "heard",     label: "I've Heard It Before" },
+    { id: "dontknow",  label: "I Don't Know It" }
+  ],
+  words: [
+    "Osmosis",
+    "Metaphor",
+    "Photosynthesis",
+    "Hypothesis",
+    "Isotope",
+    "Onomatopoeia",
+    "Algorithm",
+    "Ecosystem",
+    "Catalyst"
+  ]
+};
+/* ============================================================
+   End of editable content. Logic below this line generally
+   should not need to change.
+   ============================================================ */
+
+document.getElementById('title').textContent = CONFIG.title;
+document.getElementById('instructions').textContent = CONFIG.instructions;
+
+const bankEl = document.getElementById('bank');
+const columnsEl = document.getElementById('columns');
+const resetBtn = document.getElementById('resetBtn');
+
+// state: word -> bucket id ("bank" or one of CONFIG.buckets ids)
+let state = {};
+CONFIG.words.forEach(w => state[w] = 'bank');
+
+// Build column DOM
+CONFIG.buckets.forEach(b => {
+  const col = document.createElement('div');
+  col.className = 'column';
+  col.dataset.bucket = b.id;
+  col.innerHTML = `
+    <div class="column-head">
+      <div class="column-title">${escapeHtml(b.label)}</div>
+      <div class="column-count" id="count-${b.id}">0</div>
+    </div>
+    <div class="dropzone" id="zone-${b.id}" data-bucket="${b.id}"></div>
+  `;
+  columnsEl.appendChild(col);
+});
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function bucketLabel(id){
+  if(id === 'bank') return 'Word Bank';
+  const b = CONFIG.buckets.find(b => b.id === id);
+  return b ? b.label : id;
+}
+
+function render(){
+  // clear
+  bankEl.innerHTML = '';
+  bankEl.classList.remove('is-empty');
+  CONFIG.buckets.forEach(b => {
+    const zone = document.getElementById('zone-' + b.id);
+    zone.innerHTML = '';
+  });
+
+  let bankCount = 0;
+  CONFIG.words.forEach(word => {
+    const loc = state[word];
+    const card = createCard(word);
+    if(loc === 'bank'){
+      bankEl.appendChild(card);
+      bankCount++;
+    } else {
+      document.getElementById('zone-' + loc).appendChild(card);
+    }
+  });
+
+  if(bankCount === 0) bankEl.classList.add('is-empty');
+
+  CONFIG.buckets.forEach(b => {
+    const zone = document.getElementById('zone-' + b.id);
+    const count = zone.children.length;
+    document.getElementById('count-' + b.id).textContent = count;
+    if(count === 0){
+      const hint = document.createElement('div');
+      hint.className = 'empty-hint';
+      hint.textContent = 'Drop words here';
+      zone.appendChild(hint);
+    }
+  });
+}
+
+function createCard(word){
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.textContent = word;
+  card.draggable = true;
+  card.dataset.word = word;
+  card.setAttribute('role', 'button');
+  card.setAttribute('tabindex', '0');
+  card.setAttribute('aria-label', word + ', currently in ' + bucketLabel(state[word]) + '. Activate to move.');
+
+  // Desktop drag & drop
+  card.addEventListener('dragstart', e => {
+    card.classList.add('dragging');
+    e.dataTransfer.setData('text/plain', word);
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  card.addEventListener('dragend', () => card.classList.remove('dragging'));
+
+  // Tap / click / keyboard -> open move menu
+  card.addEventListener('click', e => openMenu(word, e.currentTarget));
+  card.addEventListener('keydown', e => {
+    if(e.key === 'Enter' || e.key === ' '){
+      e.preventDefault();
+      openMenu(word, e.currentTarget);
+    }
+  });
+
+  return card;
+}
+
+// Drop zones (bank + buckets) accept drops
+function setupDropzone(el, bucketId){
+  el.addEventListener('dragover', e => {
+    e.preventDefault();
+    el.classList.add('drag-over');
+  });
+  el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+  el.addEventListener('drop', e => {
+    e.preventDefault();
+    el.classList.remove('drag-over');
+    const word = e.dataTransfer.getData('text/plain');
+    if(word && state.hasOwnProperty(word)){
+      state[word] = bucketId;
+      render();
+    }
+  });
+}
+
+setupDropzone(bankEl, 'bank');
+CONFIG.buckets.forEach(b => setupDropzone(document.getElementById('zone-' + b.id), b.id));
+
+// Tap-to-move menu (works for touch + mouse + keyboard)
+let openMenuEl = null;
+
+function closeMenu(){
+  if(openMenuEl){
+    openMenuEl.remove();
+    openMenuEl = null;
+  }
+  const backdrop = document.querySelector('.menu-backdrop');
+  if(backdrop) backdrop.remove();
+}
+
+function openMenu(word, anchorEl){
+  closeMenu();
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'menu-backdrop';
+  backdrop.addEventListener('click', closeMenu);
+  document.body.appendChild(backdrop);
+
+  const menu = document.createElement('div');
+  menu.className = 'menu';
+
+  const options = [{ id: 'bank', label: 'Word Bank' }, ...CONFIG.buckets];
+  options.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.textContent = opt.label;
+    if(state[word] === opt.id) btn.dataset.current = 'true';
+    btn.addEventListener('click', evt => {
+      evt.stopPropagation();
+      state[word] = opt.id;
+      closeMenu();
+      render();
+    });
+    menu.appendChild(btn);
+  });
+
+  document.body.appendChild(menu);
+
+  const rect = anchorEl.getBoundingClientRect();
+  const menuRect = menu.getBoundingClientRect();
+  let top = rect.bottom + 6;
+  let left = rect.left;
+  if(left + menuRect.width > window.innerWidth - 8) left = window.innerWidth - menuRect.width - 8;
+  if(top + menuRect.height > window.innerHeight - 8) top = rect.top - menuRect.height - 6;
+  menu.style.top = top + 'px';
+  menu.style.left = left + 'px';
+
+  openMenuEl = menu;
+}
+
+resetBtn.addEventListener('click', () => {
+  CONFIG.words.forEach(w => state[w] = 'bank');
+  render();
+});
+
+render();
+</script>
+</body>
+</html>
